@@ -1,0 +1,147 @@
+﻿@page "/"
+@using Newtonsoft.Json;
+@inject IHttpClientFactory _http;
+@inject List<Elemento> _elements;
+
+<style>
+    .button{
+        background-color: darkblue !important;
+        color:white !important;
+    }
+</style>
+
+<div class="container mt-5">
+    <h1 class="mb-4">Administración de Datos</h1>
+
+    @if (visible)
+{
+        <div class="modal fade show" id="createModal" tabindex="-1" style="display: block; background: rgba(0, 0, 0, 0.5);" aria-labelledby="createModalLabel">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Crear Nuevo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="@(async()=> CerrarModal())"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label for="Descripcion">Descripcion</label>
+                        <input @bind-value="_elemento.Descripcion" class="form-control" name="Descripcion" type="text"></input>
+                        <label for="Activo">Activo</label>
+                        <input @bind-value="_elemento.Activo"  name="Activo" class="form-check-input" type="checkbox"></input>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="@(async()=>await Guardar())">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+
+    }
+    else
+    {
+        <button class="btn button mb-3"
+                data-bs-toggle="modal" onclick="@(async()=>await AbrirModal())">
+            Agregar Nuevo
+        </button>
+    }
+
+  @if (loading)
+    {
+        <h2>Cargando...</h2>
+    }
+    else
+    {
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Descripción</th>
+                    <th>Activo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+               @foreach (var item in _elements)
+                {
+                    <tr>
+                        <td>@item.ID</td>
+                        <td>@item.Descripcion</td>
+                        @if (item.Activo)
+                        {
+                            <td> <span class="badge bg-success">Activo</span></td>
+                        }
+                        else
+                        {
+                            <td> <span class="badge bg-dark">Inactivo</span></td>
+                        }
+                        <td>
+                            <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
+                                    data-bs-target="#editModal" >
+                                Editar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+
+
+
+
+@code{
+    bool visible = false;bool loading = true;
+    Elemento _elemento = new Elemento{Activo=true};
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    async Task LoadData()
+    {
+        loading = true;
+        using (var client = _http.CreateClient(ModelsShared.Constants.APICLIENTNAME))
+        {
+
+            var get = await client.GetAsync("/elementoes?$orderby=id desc");
+            var result = await get.Content.ReadAsStringAsync();
+
+            _elements = JsonConvert.DeserializeObject<List<Elemento>>(result);
+        }
+        loading = false;
+    }
+
+    async Task Guardar()
+    {
+        await CerrarModal();
+        loading = true;
+        using (var client = _http.CreateClient(ModelsShared.Constants.APICLIENTNAME))
+        {
+            string json = JsonConvert.SerializeObject(_elemento,Formatting.Indented);
+            var content = new StringContent(json, System.Text.Encoding.UTF8,
+                                                    System.Net.Mime.MediaTypeNames.Application.Json);
+            var post = await client.PostAsync("/elementoes",content);
+            var result = await post.Content.ReadAsStringAsync();
+
+
+        }
+
+        await LoadData();
+        loading = false;
+    }
+
+    async Task AbrirModal()
+    {
+        await Task.Delay(100);
+        visible = true;
+    }
+
+    async Task CerrarModal()
+    {
+        await Task.Delay(100);
+        visible = false;
+    }
+}
